@@ -1,0 +1,34 @@
+{
+  "name": "tkp",
+  "version": "1.0.0",
+  "description": "tkp smart contract",
+  "keywords": [
+    "truffle",
+    "ethereum",
+    "web3",
+    "solidity"
+  ],
+  "scripts": {
+    "test": "truffle test"
+  },
+  "author": {
+    "name": "arksu",
+    "email": "ark@ark.su",
+    "url": "https://github.com/arksu"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "solc": "^0.4.20",
+    "web3": "^0.19.1"
+  },
+  "devDependencies": {
+    "babel-polyfill": "^6.23.0",
+    "babel-preset-es2015": "^6.18.0",
+    "babel-preset-stage-2": "^6.18.0",
+    "babel-preset-stage-3": "^6.17.0",
+    "babel-register": "^6.23.0",
+    "chai": "^4.0.2",
+    "chai-as-promised": "^7.0.0",
+    "chai-bignumber": "^2.0.0"
+  }
+}

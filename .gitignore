@@ -1,0 +1,8 @@
+**DS_Store
+*.log
+*.key
+*.pem
+build/
+node_modules/
+*.bin
+*.swp
