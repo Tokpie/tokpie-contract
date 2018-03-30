@@ -27,6 +27,7 @@ contract('preICO', function (accounts) {
     // about 0.05208 ether for 100 tokens
     const minTokensAmount = 53000000000000000;
     const lessThanGoal = ether(8);
+
     const maxEtherPerInvestor = ether(100);
 
     const cntToHardCap = hardCap.div(maxEtherPerInvestor);
@@ -51,7 +52,7 @@ contract('preICO', function (accounts) {
         this.afterClosingTime = this.closingTime + duration.seconds(1);
 
         this.token = await Token.new();
-        this.crowdsale = await preICO.new(this.token.address, wallet, this.startTime, this.closingTime, maxEtherPerInvestor);
+        this.crowdsale = await preICO.new(this.token.address, wallet, this.startTime, this.closingTime);
         await this.token.setSaleAgent(this.crowdsale.address);
     });
 
@@ -110,34 +111,6 @@ contract('preICO', function (accounts) {
             await increaseTimeTo(this.startTime);
             await this.crowdsale.send(minTokensAmount, {from: purchaser}).should.be.fulfilled;
             await this.crowdsale.send(100, {from: purchaser}).should.be.rejectedWith(EVMRevert);
-        });
-
-        it('should buy only not more than maxEtherPerInvestor Ether for one investor', async function () {
-            await increaseTimeTo(this.startTime);
-            await this.crowdsale.send(maxEtherPerInvestor, {from: purchaser}).should.be.fulfilled;
-            await this.crowdsale.send(100, {from: purchaser}).should.be.rejectedWith(EVMRevert);
-        });
-    });
-
-    describe('capped crowdsale', function () {
-        it('should accept payments within cap', async function () {
-            await increaseTimeTo(this.startTime);
-
-            await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[51]}).should.be.fulfilled;
-            await this.crowdsale.sendTransaction({
-                value: ether(1),
-                from: accounts[51]
-            }).should.be.rejectedWith(EVMRevert);
-
-            await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[55]}).should.be.fulfilled;
-        });
-
-        it('should reject payments outside cap', async function () {
-            await increaseTimeTo(this.startTime);
-            for (let i = 0; i < cntToHardCap; i++) {
-                await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[30 + i]});
-            }
-            await this.crowdsale.send(ether(1)).should.be.rejectedWith(EVMRevert);
         });
     });
 

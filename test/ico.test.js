@@ -51,7 +51,7 @@ contract('ICO', function (accounts) {
         this.afterClosingTime = this.closingTime + duration.seconds(1);
 
         this.token = await Token.new();
-        this.crowdsale = await ICO.new(this.token.address, wallet, this.startTime, this.closingTime, maxEtherPerInvestor, hardCap);
+        this.crowdsale = await ICO.new(this.token.address, wallet, this.startTime, this.closingTime, hardCap);
         await this.token.setSaleAgent(this.crowdsale.address);
     });
 
@@ -146,18 +146,6 @@ contract('ICO', function (accounts) {
     });
 
     describe('capped crowdsale', function () {
-        it('should accept payments within cap', async function () {
-            await increaseTimeTo(this.startTime);
-
-            await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[7]}).should.be.fulfilled;
-            await this.crowdsale.sendTransaction({
-                value: ether(1),
-                from: accounts[7]
-            }).should.be.rejectedWith(EVMRevert);
-
-            await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[8]}).should.be.fulfilled;
-        });
-
         it('should reject payments outside cap', async function () {
             await increaseTimeTo(this.startTime);
             for (let i = 0; i < cntToHardCap; i++) {
