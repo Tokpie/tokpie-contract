@@ -290,8 +290,8 @@ contract MintableToken is Ownable, StandardToken {
 }
 
 contract Token is MintableToken {
-    string public constant name = "TOKPIE";
-    string public constant symbol = "TKP";
+    string public constant name = "T";
+    string public constant symbol = "T";
     uint8 public constant decimals = 18;
 }
 
@@ -340,7 +340,42 @@ contract Pausable is Ownable {
 }
 
 /**
- * @title Finalizable Crowdsale
+ * @title WhitelistedCrowdsale
+ * @dev Crowdsale in which only whitelisted users can contribute.
+ */
+contract WhitelistedCrowdsale is Ownable {
+
+    mapping(address => bool) public whitelist;
+
+    /**
+     * @dev Reverts if beneficiary is not whitelisted. Can be used when extending this contract.
+     */
+    modifier isWhitelisted(address _beneficiary) {
+        require(whitelist[_beneficiary]);
+        _;
+    }
+
+    /**
+     * @dev Adds single address to whitelist.
+     * @param _beneficiary Address to be added to the whitelist
+     */
+    function addToWhitelist(address _beneficiary) external onlyOwner {
+        whitelist[_beneficiary] = true;
+    }
+
+    /**
+     * @dev Adds list of addresses to whitelist. Not overloaded due to limitations with truffle testing.
+     * @param _beneficiaries Addresses to be added to the whitelist
+     */
+    function addManyToWhitelist(address[] _beneficiaries) external onlyOwner {
+        for (uint256 i = 0; i < _beneficiaries.length; i++) {
+            whitelist[_beneficiaries[i]] = true;
+        }
+    }
+}
+
+/**
+ * @title FinalizableCrowdsale
  * @dev Extension of Crowdsale where an owner can do extra work
  * after finishing.
  */
@@ -433,7 +468,7 @@ contract RefundVault is Ownable {
     }
 }
 
-contract preICO is FinalizableCrowdsale {
+contract preICO is FinalizableCrowdsale, WhitelistedCrowdsale {
     Token public token;
 
     // May 01, 2018 @ UTC 0:01
@@ -515,7 +550,7 @@ contract preICO is FinalizableCrowdsale {
     }
 
     // low level token purchase function
-    function buyTokens(address beneficiary) whenNotPaused public payable {
+    function buyTokens(address beneficiary) whenNotPaused isWhitelisted(beneficiary) isWhitelisted(msg.sender) public payable {
         require(beneficiary != address(0));
         require(validPurchase());
         require(!hasEnded());
@@ -552,7 +587,7 @@ contract preICO is FinalizableCrowdsale {
     }
 }
 
-contract ICO is Pausable {
+contract ICO is Pausable, WhitelistedCrowdsale {
     using SafeMath for uint256;
 
     Token public token;
@@ -625,7 +660,7 @@ contract ICO is Pausable {
     }
 
     // low level token purchase function
-    function buyTokens(address beneficiary) whenNotPaused public payable {
+    function buyTokens(address beneficiary) whenNotPaused isWhitelisted(beneficiary) isWhitelisted(msg.sender) public payable {
         require(beneficiary != address(0));
         require(validPurchase());
         require(!hasEnded());
@@ -674,7 +709,7 @@ contract postICO is Ownable {
 
     uint256 public FTST;
 
-    // Save complete of transfers (due to schedule) to these wallets 
+    // save complete of transfer by shedule for this wallets
     mapping(uint8 => bool) completedE;
     mapping(uint8 => bool) completedBC;
 
@@ -719,31 +754,31 @@ contract postICO is Ownable {
 
         FTST = token.totalSupply().mul(100).div(65);
 
-        // post ICO token allocation: 35% of final total supply of tokens (FTST) will be distributed to the wallets E, B, C, F, G due to the schedule described below. Where FTST = the number of tokens sold during crowdsale x 100 / 65.
-        // Growth reserve: 21% (4-years lock). Distribute 2.625% of the final total supply of tokens (FTST*2625/100000) 8 (eight) times every half a year during 4 (four) years after the endICODate to the wallet [E].
+        // total tokens for walletE, Growth reserve: 21% (4-years lock)
+        // (2.625% of final total supply of tokens) FTST*2625/100000 8 times
         // hold this tokens on postICO contract
         paymentSizeE = FTST.mul(2625).div(100000);
         uint256 tokensE = paymentSizeE.mul(8);
         token.mint(this, tokensE);
 
         // Team: 9.6% (2-years lock)
-        // Distribute 0.25% of final total supply of tokens (FTST*25/10000) 4 (four) times every half a year during 2 (two) years after endICODate to the wallet [B].
+        // (0.25% of final total supply of tokens) FTST*25/10000 to the wallet [B] 4 times
         // hold this tokens on postICO contract
         paymentSizeB = FTST.mul(25).div(10000);
         uint256 tokensB = paymentSizeB.mul(4);
         token.mint(this, tokensB);
 
-        // Distribute 2.15% of final total supply of tokens (FTST*215/10000) 4 (four) times every half a year during 2 (two) years after endICODate to the wallet [C].
+        // (2.15% of final total supply of tokens)  FTST*215/10000  to the wallet [C] 4 times
         // hold this tokens on postICO contract
         paymentSizeC = FTST.mul(215).div(10000);
         uint256 tokensC = paymentSizeC.mul(4);
         token.mint(this, tokensC);
 
-        // Angel investors: 2%. Distribute 2% of final total supply of tokens (FTST*2/100) after endICODate to the wallet [F]
+        // FTST*2/100 (2% of final total supply of tokens) to the wallet [F]
         uint256 tokensF = FTST.mul(2).div(100);
         token.mint(walletF, tokensF);
 
-        // Referral program 1,3% + Bounty program: 1,1%. Distribute 2,4% of final total supply of tokens (FTST*24/1000) after endICODate to the wallet [G] 
+        // FTST*24/1000 (2.4% of final total supply of tokens) to the wallet [G]
         uint256 tokensG = FTST.mul(24).div(1000);
         token.mint(walletG, tokensG);
 
@@ -756,56 +791,56 @@ contract postICO is Ownable {
         require(order >= 1 && order <= 8);
         require(!completedE[order]);
 
-        // On January 03, 2019 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On January 03, 2019 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 1) {
             // Thursday, 3 January 2019 г., 23:59:00
             require(now >= endICODate + 15724800);
             token.transfer(walletE, paymentSizeE);
             completedE[order] = true;
         }
-        // On July 05, 2019 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On July 05, 2019 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 2) {
             // Friday, 5 July 2019 г., 23:59:00
             require(now >= endICODate + 31536000);
             token.transfer(walletE, paymentSizeE);
             completedE[order] = true;
         }
-        // On January 03, 2020 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On January 03, 2020 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 3) {
             // Friday, 3 January 2020 г., 23:59:00
             require(now >= endICODate + 47260800);
             token.transfer(walletE, paymentSizeE);
             completedE[order] = true;
         }
-        // On July 04, 2020 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On July 04, 2020 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 4) {
             // Saturday, 4 July 2020 г., 23:59:00
             require(now >= endICODate + 63072000);
             token.transfer(walletE, paymentSizeE);
             completedE[order] = true;
         }
-        // On January 02, 2021 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On January 02, 2021 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 5) {
             // Saturday, 2 January 2021 г., 23:59:00
             require(now >= endICODate + 78796800);
             token.transfer(walletE, paymentSizeE);
             completedE[order] = true;
         }
-        // On July 04, 2021 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On July 04, 2021 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 6) {
             // Sunday, 4 July 2021 г., 23:59:00
             require(now >= endICODate + 94608000);
             token.transfer(walletE, paymentSizeE);
             completedE[order] = true;
         }
-        // On January 02, 2022 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On January 02, 2022 @ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 7) {
             // Sunday, 2 January 2022 г., 23:59:00
             require(now >= endICODate + 110332800);
             token.transfer(walletE, paymentSizeE);
             completedE[order] = true;
         }
-        // On July 04, 2022@ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens) to the wallet [E].
+        // On July 04, 2022@ UTC 23:59 = FTST*2625/100000 (2.625% of final total supply of tokens)
         if (order == 8) {
             // Monday, 4 July 2022 г., 23:59:00
             require(now >= endICODate + 126144000);
@@ -819,7 +854,7 @@ contract postICO is Ownable {
         require(order >= 1 && order <= 4);
         require(!completedBC[order]);
 
-        // On January 03, 2019 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens) to the wallet [B] and FTST*215/10000 (2.15% of final total supply of tokens) to the wallet [C].
+        // On January 03, 2019 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens)
         if (order == 1) {
             // Thursday, 3 January 2019 г., 23:59:00
             require(now >= endICODate + 15724800);
@@ -827,7 +862,7 @@ contract postICO is Ownable {
             token.transfer(walletC, paymentSizeC);
             completedBC[order] = true;
         }
-        // On July 05, 2019 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens) to the wallet [B] and FTST*215/10000 (2.15% of final total supply of tokens) to the wallet [C].
+        // On July 05, 2019 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens)
         if (order == 2) {
             // Friday, 5 July 2019 г., 23:59:00
             require(now >= endICODate + 31536000);
@@ -835,7 +870,7 @@ contract postICO is Ownable {
             token.transfer(walletC, paymentSizeC);
             completedBC[order] = true;
         }
-        // On January 03, 2020 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens) to the wallet [B] and FTST*215/10000 (2.15% of final total supply of tokens) to the wallet [C].
+        // On January 03, 2020 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens)
         if (order == 3) {
             // Friday, 3 January 2020 г., 23:59:00
             require(now >= endICODate + 47260800);
@@ -843,7 +878,7 @@ contract postICO is Ownable {
             token.transfer(walletC, paymentSizeC);
             completedBC[order] = true;
         }
-        // On July 04, 2020 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens) to the wallet [B] and FTST*215/10000 (2.15% of final total supply of tokens) to the wallet [C].
+        // On July 04, 2020 @ UTC 23:59 = FTST*25/10000 (0.25% of final total supply of tokens)
         if (order == 4) {
             // Saturday, 4 July 2020 г., 23:59:00
             require(now >= endICODate + 63072000);

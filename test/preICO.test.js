@@ -31,7 +31,6 @@ contract('preICO', function (accounts) {
     const maxEtherPerInvestor = ether(100);
 
     const cntToHardCap = hardCap.div(maxEtherPerInvestor);
-    console.log("cntToHardCap=" + cntToHardCap);
 
     const rate = new BigNumber(1920);
     let wallet = accounts[9];
@@ -39,6 +38,11 @@ contract('preICO', function (accounts) {
     let investor = accounts[2];
     let owner = accounts[0];
     let thirdparty = accounts[3];
+
+    let unauthorized = accounts[4];
+    let authorized = accounts[5];
+    let anotherAuthorized = accounts[6];
+
     const expectedTokenAmount = rate.mul(value);
 
     before(async function () {
@@ -54,6 +58,9 @@ contract('preICO', function (accounts) {
         this.token = await Token.new();
         this.crowdsale = await preICO.new(this.token.address, wallet, this.startTime, this.closingTime);
         await this.token.setSaleAgent(this.crowdsale.address);
+        await this.crowdsale.addToWhitelist(purchaser).should.be.fulfilled;
+        await this.crowdsale.addToWhitelist(investor).should.be.fulfilled;
+
     });
 
     describe('high-level purchase', function () {
@@ -70,7 +77,13 @@ contract('preICO', function (accounts) {
 
         it('should accept payments', async function () {
             await increaseTimeTo(this.startTime);
-            await this.crowdsale.send(value, {from: purchaser}).should.be.fulfilled;
+            // owner is not in white list yet
+            await this.crowdsale.send(value).should.be.rejectedWith(EVMRevert);
+
+            await this.crowdsale.addToWhitelist(owner).should.be.fulfilled;
+            // now owner can send and buy tokens
+            await this.crowdsale.send(value).should.be.fulfilled;
+
             await this.crowdsale.buyTokens(investor, {value: value, from: purchaser}).should.be.fulfilled;
         });
 
@@ -109,8 +122,11 @@ contract('preICO', function (accounts) {
     describe('low-level purchase', function () {
         it('should buy only more than 100 tokens', async function () {
             await increaseTimeTo(this.startTime);
-            await this.crowdsale.send(minTokensAmount, {from: purchaser}).should.be.fulfilled;
-            await this.crowdsale.send(100, {from: purchaser}).should.be.rejectedWith(EVMRevert);
+
+            await this.crowdsale.addToWhitelist(owner).should.be.fulfilled;
+
+            await this.crowdsale.send(minTokensAmount).should.be.fulfilled;
+            await this.crowdsale.send(100).should.be.rejectedWith(EVMRevert);
         });
     });
 
@@ -124,6 +140,7 @@ contract('preICO', function (accounts) {
         it('should deny refunds after end if goal was reached', async function () {
             await increaseTimeTo(this.startTime);
             for (let i = 0; i < cntToHardCap; i++) {
+                await this.crowdsale.addToWhitelist(accounts[30 + i]);
                 await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[30 + i]});
             }
             await increaseTimeTo(this.afterClosingTime);
@@ -147,6 +164,7 @@ contract('preICO', function (accounts) {
             await increaseTimeTo(this.startTime);
 
             for (let i = 0; i < cntToHardCap; i++) {
+                await this.crowdsale.addToWhitelist(accounts[30 + i]);
                 await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[30 + i]});
             }
 
@@ -186,4 +204,71 @@ contract('preICO', function (accounts) {
             should.exist(event);
         });
     });
+
+    describe('whitelisted crowdsale', function () {
+        describe('single user whitelisting', function () {
+            beforeEach(async function () {
+                await this.crowdsale.addToWhitelist(authorized).should.be.fulfilled;
+                await increaseTimeTo(this.startTime);
+            });
+
+            it('should accept payments to whitelisted (from whichever buyers)', async function () {
+                await this.crowdsale.buyTokens(authorized, {value: value, from: authorized}).should.be.fulfilled;
+                await this.crowdsale.buyTokens(authorized, {value: value, from: unauthorized}).should.be.rejected;
+            });
+
+            it('should reject payments to not whitelisted (from whichever buyers)', async function () {
+                await this.crowdsale.send(value).should.be.rejected;
+                await this.crowdsale.buyTokens(unauthorized, {value: value, from: unauthorized}).should.be.rejected;
+                await this.crowdsale.buyTokens(unauthorized, {value: value, from: authorized}).should.be.rejected;
+            });
+
+            it('should correctly report whitelisted addresses', async function () {
+                let isAuthorized = await this.crowdsale.whitelist(authorized);
+                isAuthorized.should.equal(true);
+                let isntAuthorized = await this.crowdsale.whitelist(unauthorized);
+                isntAuthorized.should.equal(false);
+            });
+        });
+
+        describe('many user whitelisting', function () {
+            beforeEach(async function () {
+                await this.crowdsale.addManyToWhitelist([authorized, anotherAuthorized]);
+                await increaseTimeTo(this.startTime);
+            });
+
+            describe('accepting payments', function () {
+                it('should accept payments to whitelisted (from whichever buyers)', async function () {
+                    await this.crowdsale.buyTokens(authorized, {value: value, from: authorized}).should.be.fulfilled;
+                    await this.crowdsale.buyTokens(authorized, {value: value, from: unauthorized}).should.be.rejected;
+                    await this.crowdsale.buyTokens(anotherAuthorized, {
+                        value: value,
+                        from: anotherAuthorized
+                    }).should.be.fulfilled;
+                    await this.crowdsale.buyTokens(anotherAuthorized, {
+                        value: value,
+                        from: unauthorized
+                    }).should.be.rejected;
+                });
+
+                it('should reject payments to not whitelisted (with whichever buyers)', async function () {
+                    await this.crowdsale.send(value).should.be.rejected;
+                    await this.crowdsale.buyTokens(unauthorized, {value: value, from: unauthorized}).should.be.rejected;
+                    await this.crowdsale.buyTokens(unauthorized, {value: value, from: authorized}).should.be.rejected;
+                });
+            });
+
+            describe('reporting whitelisted', function () {
+                it('should correctly report whitelisted addresses', async function () {
+                    let isAuthorized = await this.crowdsale.whitelist(authorized);
+                    isAuthorized.should.equal(true);
+                    let isAnotherAuthorized = await this.crowdsale.whitelist(anotherAuthorized);
+                    isAnotherAuthorized.should.equal(true);
+                    let isntAuthorized = await this.crowdsale.whitelist(unauthorized);
+                    isntAuthorized.should.equal(false);
+                });
+            });
+        });
+    });
+
 });

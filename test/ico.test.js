@@ -53,6 +53,8 @@ contract('ICO', function (accounts) {
         this.token = await Token.new();
         this.crowdsale = await ICO.new(this.token.address, wallet, this.startTime, this.closingTime, hardCap);
         await this.token.setSaleAgent(this.crowdsale.address);
+        await this.crowdsale.addToWhitelist(purchaser).should.be.fulfilled;
+        await this.crowdsale.addToWhitelist(investor).should.be.fulfilled;
     });
 
     describe('high-level purchase', function () {
@@ -69,7 +71,13 @@ contract('ICO', function (accounts) {
 
         it('should accept payments', async function () {
             await increaseTimeTo(this.startTime);
+
+            // owner is not in white list yet
+            await this.crowdsale.send(value).should.be.rejectedWith(EVMRevert);
+
+            await this.crowdsale.addToWhitelist(owner).should.be.fulfilled;
             await this.crowdsale.send(value).should.be.fulfilled;
+
             await this.crowdsale.buyTokens(investor, {value: value, from: purchaser}).should.be.fulfilled;
         });
 
@@ -140,6 +148,7 @@ contract('ICO', function (accounts) {
 
         it('should buy only not more than maxEtherPerInvestor Ether for one investor', async function () {
             await increaseTimeTo(this.startTime);
+            await this.crowdsale.addToWhitelist(owner).should.be.fulfilled;
             await this.crowdsale.send(maxEtherPerInvestor).should.be.fulfilled;
             await this.crowdsale.send(100).should.be.rejectedWith(EVMRevert);
         });
@@ -149,6 +158,7 @@ contract('ICO', function (accounts) {
         it('should reject payments outside cap', async function () {
             await increaseTimeTo(this.startTime);
             for (let i = 0; i < cntToHardCap; i++) {
+                await this.crowdsale.addToWhitelist(accounts[30 + i]);
                 await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[30 + i]});
             }
             await this.crowdsale.send(1).should.be.rejectedWith(EVMRevert);
@@ -157,6 +167,7 @@ contract('ICO', function (accounts) {
         it('should reject payments that exceed cap', async function () {
             await increaseTimeTo(this.startTime);
             for (let i = 0; i < cntToHardCap; i++) {
+                await this.crowdsale.addToWhitelist(accounts[30 + i]);
                 await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[30 + i]});
             }
             await this.crowdsale.send(1).should.be.rejectedWith(EVMRevert);
@@ -189,6 +200,7 @@ contract('ICO', function (accounts) {
         it('should allow claim funds after hard cap reached', async function () {
             await increaseTimeTo(this.startTime);
             for (let i = 0; i < cntToHardCap; i++) {
+                await this.crowdsale.addToWhitelist(accounts[30 + i]);
                 await this.crowdsale.sendTransaction({value: maxEtherPerInvestor, from: accounts[30 + i]});
             }
             const pre = web3.eth.getBalance(wallet);
