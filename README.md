@@ -26,5 +26,7 @@ truffle test
 
 ## Audits
 The TOKPIE's smart contracts (already deployed in block-chain) were audited by [KRogLA](https://github.com/krogla) / [EthereumWorks](https://github.com/EthereumWorks).
+
 The results in English: https://github.com/krogla/tokpie-contract/blob/master/audit/deployed_audit_en.md
+
 The results in Russian: https://github.com/krogla/tokpie-contract/blob/master/audit/deployed_audit_ru.md
