@@ -1,32 +1,4 @@
-This repository has the smart contracts for the Tokpie project. There are four main components in this repository including  Token contract, pre-ICO, ICO and post ICO contracts. In addition, we have a couple of mock modules that simulate testnet tokens.
-This repository is for testing purposes only, do not use it for real deployment.
-
-## Getting Started
-
-This repository integrates with [Truffle](https://github.com/ConsenSys/truffle), the Ethereum development environment. Please install Truffle. Also you need [Ganache](https://github.com/trufflesuite/ganache-cli).
-
-```sh
-npm install -g truffle
-npm install -g ganache-cli
-```
-
-Than you need to install all required depencies.
-```sh
-npm install
-```
-
-## Testnet deployment
-
-We have a functional deployment running on ganache testnet.
-
-```sh
-./startGanache.sh
-truffle test
-```
+This repository has the smart contract for the TOKPIE project. 
 
 ## Audits
-The TOKPIE's smart contracts (already deployed in block-chain) were audited by [KRogLA](https://github.com/krogla) / [EthereumWorks](https://github.com/EthereumWorks) between April 10, 2018 and April 21, 2018.
-
-The results in English: https://github.com/krogla/tokpie-contract/blob/master/audit/deployed_audit_en.md
-
-The results in Russian: https://github.com/krogla/tokpie-contract/blob/master/audit/deployed_audit_ru.md
+The TOKPIE's smart contract (already deployed in block-chain) will be audited by [KRogLA](https://github.com/krogla) / [EthereumWorks](https://github.com/EthereumWorks) in June 18, 2018.
